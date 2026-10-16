@@ -7,7 +7,14 @@ authors = [
     { name = "Prajwal Gawande", email = "prajwalgawande84@gmail.com" }
 ]
 requires-python = ">=3.14"
-dependencies = []
+dependencies = [
+    "dotenv>=0.9.9",
+    "groq>=1.7.0",
+    "numpy>=2.5.4",
+    "pydantic>=2.14.1",
+    "qdrant-client>=1.19.1",
+    "sentence-transformers>=6.1.0",
+]
 
 [project.scripts]
 rag = "rag:main"

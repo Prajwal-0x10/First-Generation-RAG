@@ -1,27 +1,16 @@
 # Retrieval-Augmented Generation (RAG) 🚀
 
-This repository demonstrates the evolution of **Retrieval-Augmented Generation (RAG)** systems, starting from basic **First-Generation (Naive) RAG** to advanced and agentic RAG architectures.
+This repository demonstrates the step-by-step architectural evolution of **Retrieval-Augmented Generation (RAG)** systems, progressing from basic keyword lookup to in-memory vector embeddings, and finally to a scalable vector database using **Qdrant** and **Groq**.
 
 ---
 
-## 📌 Project Overview
+## 📌 RAG Architectural Evolution
 
-**Retrieval-Augmented Generation (RAG)** bridges the gap between static LLMs and dynamic/private datasets. Instead of relying solely on pre-trained weights, RAG retrieves relevant context from a knowledge base before generating responses.
-
-### 🧩 First-Generation (Naive) RAG
-
-First-Generation RAG follows a simple 3-step linear pipeline:
-1. **Indexing / Knowledge Base**: Storing raw data chunks or key-value entries.
-2. **Retrieval**: Performing direct lookup or vector similarity search based on the user's query.
-3. **Generation**: Injecting retrieved context into the LLM system prompt to generate an answer.
-
-#### ⚖️ Pros & Cons
-
-| Pros | Cons |
-| :--- | :--- |
-| **Fast Setup**: Easy to prototype and build in an afternoon. | **Phrasing Sensitivity**: Simple lookup fails when query phrasing differs from stored keywords. |
-| **Grounding**: Reduces hallucinations by providing exact context. | **No Multi-Hop Reasoning**: Struggles to synthesize facts across multiple files or entries. |
-| **Cost-Effective**: Single-pass retrieval without complex loops. | **Context Noise**: Vulnerable to "Lost in the Middle" syndrome with large text chunks. |
+| Level | File | Retrieval Method | Storage | Semantic Understanding | Scalability |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **Level 1** | `First_Generation_Rag.py` | Keyword matching (`if "keyword" in query`) | Python `dict` in code | ❌ None (exact matches only) | ❌ Very Low |
+| **Level 2** | `First_Rag_System.py` | Dense vector similarity (`all-MiniLM-L6-v2`) | NumPy array in memory | ✅ High (understands meaning) | ⚠️ Medium (RAM-bound) |
+| **Level 3** | `Rag_Using_Vector_DB.py` | Approximate Nearest Neighbor (ANN) search | **Qdrant Cloud** Vector DB | ✅ High (HNSW vector indexing) | 🚀 High (Production-grade) |
 
 ---
 
@@ -29,12 +18,16 @@ First-Generation RAG follows a simple 3-step linear pipeline:
 
 ```text
 RAG/
-├── README.md                  # Project Documentation
-├── pyproject.toml             # Python dependencies and build config
+├── README.md                         # Project documentation
+├── pyproject.toml                    # UV / Python dependencies configuration
+├── knowledge_base.txt                # Raw text knowledge base facts
 └── src/
     └── rag/
         ├── __init__.py
-        └── First_Generation_Rag.py  # First-Generation RAG implementation
+        ├── First_Generation_Rag.py   # Level 1: Keyword-based Naive RAG
+        ├── First_Rag_System.py       # Level 2: In-Memory Semantic RAG (NumPy + Embeddings)
+        ├── Rag_Using_Vector_DB.py    # Level 3: Production RAG with Qdrant Vector DB
+        └── knowledge_base.txt        # Knowledge base copy for module access
 ```
 
 ---
@@ -42,16 +35,17 @@ RAG/
 ## ⚙️ Setup & Installation
 
 ### 1. Prerequisites
-
 - Python 3.10+ (or Python 3.14 via `uv`)
-- A **Groq API Key** (or LLM provider key)
+- A **Groq API Key** ([Groq Console](https://console.groq.com/))
+- A **Qdrant Cloud API Key & Cluster URL** ([Qdrant Cloud](https://cloud.qdrant.io/))
 
 ### 2. Environment Variables
-
 Create a `.env` file in the root directory:
 
 ```env
 GROQ_API_KEY=your_groq_api_key_here
+QDRANT_API_KEY=your_qdrant_api_key_here
+QDRANT_URL=https://your-cluster-id.us-east-4-0.aws.cloud.qdrant.io:6333
 ```
 
 ### 3. Installation
@@ -63,36 +57,84 @@ uv sync
 
 Or using standard `pip`:
 ```bash
-pip install groq python-dotenv pydantic
+pip install groq python-dotenv pydantic qdrant-client sentence-transformers numpy
 ```
 
 ---
 
-## 🚀 Running First-Generation RAG
+## 🔬 Detailed Implementation Breakdown
 
-Execute the python script directly:
+### 1. `First_Generation_Rag.py` (Keyword / Naive RAG)
 
+The simplest form of RAG. It stores facts in a static Python dictionary and checks whether specific keywords appear in the user's question.
+
+- **How it works:**
+  1. Defines a dictionary `knowledge_base` with keys like `"name"`, `"age"`, `"qualification"`.
+  2. Scans the user query string using `if "keyword" in question:`.
+  3. Sends the matched string as context to Groq LLM (`openai/gpt-oss-120b`).
+
+- **Strengths:** Instant, zero embedding computation, no database needed.
+- **Limitations:** Extremely brittle. If the user asks *"How old is the user?"* instead of using the word *"age"*, the retrieval returns `None` and the system fails.
+
+**Run it:**
 ```bash
 python src/rag/First_Generation_Rag.py
 ```
 
-Or with `uv`:
+---
+
+### 2. `First_Rag_System.py` (In-Memory Semantic Search with NumPy)
+
+Solves the phrasing sensitivity issue by translating text into dense vector embeddings and calculating mathematical similarity.
+
+- **How it works:**
+  1. Stores knowledge statements in a Python list.
+  2. Encodes each statement into a 384-dimensional dense vector using `SentenceTransformer("all-MiniLM-L6-v2")`.
+  3. Converts the user query into a vector and computes **Cosine Similarity** with each knowledge vector using NumPy:
+     $$\text{Cosine Similarity} = \frac{\mathbf{u} \cdot \mathbf{v}}{\|\mathbf{u}\| \|\mathbf{v}\|}$$
+  4. Selects the highest-scoring fact and feeds it to Groq LLM as context.
+
+- **Strengths:** True semantic understanding. Asking *"How long does honey last?"* correctly retrieves *"Honey never spoils..."* even though the words do not overlap.
+- **Limitations:** Every query requires an exhaustive linear scan ($O(N)$) across all vectors stored in RAM. Not feasible for large datasets.
+
+**Run it:**
 ```bash
-uv run python src/rag/First_Generation_Rag.py
+python src/rag/First_Rag_System.py
 ```
 
-### 🔍 Code Example & Output
+---
 
-```python
-# Knowledge Base Lookup
-Passed Prompt:
-Query: "User Name"          -> Answer: "The user's name is Prajwal." ✅
-Query: "User Age"           -> Answer: "Prajwal is 26 years old." ✅
-Query: "User Qualification" -> Answer: "Prajwal is a Software Engineer." ✅
+### 3. `Rag_Using_Vector_DB.py` (Production-Ready RAG with Qdrant)
 
-Failed Prompt:
-Query: "What do you think about user?" -> Fails (No matching keyword context) ❌
-Query: "How old is user"               -> Fails (Phrasing mismatch) ❌
+A complete, production-grade RAG pipeline integrating an external knowledge base file, an enterprise vector database (**Qdrant**), and Groq LLM.
+
+- **Key Highlights:**
+  - **Modular Pipeline:** Structured into clear helper functions (`qdrant_connection`, `read_knowledge_file`, `create_qdrant_points`, `qdrant_search`, `ask_llm`).
+  - **External Ingestion:** Dynamically parses text line-by-line from `knowledge_base.txt`.
+  - **Robust Cloud Connection:** Configured with `timeout=60` and `prefer_grpc=True` for high-throughput, low-latency vector operations over remote connections.
+  - **Qdrant Indexing:** Checks collection existence and upserts `PointStruct` objects containing vectors and metadata payloads.
+  - **Top-K Vector Retrieval:** Uses `query_points()` to retrieve the $K$ most relevant passages based on cosine distance.
+  - **Anti-Hallucination Prompting:** Injects retrieved context into Groq LLM with strict guardrails to prevent hallucination.
+
+**Run it:**
+```bash
+python src/rag/Rag_Using_Vector_DB.py
+```
+
+**Sample Output:**
+```text
+Connected to Qdrant Vector Database Successfully!
+Loaded 15 documents from knowledge_base.txt
+Documents Embedding Created Successfully!
+Data successfully added to Qdrant
+
+Top 3 most relevant documents are:
+  • ID 3: "A day on Venus is longer than its year." (Score: 0.6653)
+  • ID 5: "Sharks existed before trees appeared on Earth." (Score: 0.2278)
+  • ID 11: "Cleopatra lived closer in time to the Moon landing..." (Score: 0.2058)
+
+Answer:
+Based on the provided context, a day on Venus (one full rotation on its axis) is longer than its year (one orbit around the Sun).
 ```
 
 ---
