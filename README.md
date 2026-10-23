@@ -137,7 +137,40 @@ Answer:
 Based on the provided context, a day on Venus (one full rotation on its axis) is longer than its year (one orbit around the Sun).
 ```
 
----
+--- 
+### 3. `Multi_Tenant_RAG.py` (Multi-Tenant RAG with Qdrant)
+A complete, production-grade RAG pipeline to understand working of HNSW and Filter and implmentation into multi-tenant RAG for enterprise usecase vector database (**Qdrant**), and Groq LLM.
+
+- **Key Highlights:**
+  - **Modular Pipeline:** Structured into clear helper functions (`qdrant_connection`, `read_knowledge_file`, `create_qdrant_points`, `qdrant_search`, `ask_llm`).
+  - **External Ingestion:** Dynamically parses text line-by-line from `knowledge_base.txt`.
+  - **Robust Cloud Connection:** Configured with `timeout=60` and `prefer_grpc=True` for high-throughput, low-latency vector operations over remote connections.
+  - **Qdrant Indexing:** Checks collection existence and upserts `PointStruct` objects containing vectors and metadata payloads.
+  - **HNSW**:HNSW stand for Hierarchical Navigable Small World , it makes sure we reaches to destined answer region before running our linear search making it run in time complexity O(logn) instead of O(n). Making it scale to billions of vector by mapping it to multilayer herarchical graph .
+  - **Filter**: Using filter we can filter out data which is relavant and making our database smaller and retrieval process faster. It makes it easier to retrieve the data from the database.
+  Works using 3 conditions:
+    1. must -> represents include all filters. All of them need to be true.
+    2. must_not -> represents exclude all filters. None of them need to be true.
+    3. should -> represents include all filters. Atleast one of them need to be true.
+
+  - **Top-K Vector Retrieval:** Uses `query_points()` to retrieve the $K$ most relevant passages based on cosine distance.
+  - **Anti-Hallucination Prompting:** Injects retrieved context into Groq LLM with strict guardrails to prevent hallucination.
+
+`
+### 4. `Rag_Using_Chunking.py` (Making big text into smaller chunks)
+A complete, production-grade RAG pipeline to understand how chunking works and implmenting into RAG for enterprise usecase vector database (**Qdrant**), and Groq LLM.
+
+- **Key Highlights:**
+  - **Modular Pipeline:** Structured into clear helper functions (`qdrant_connection`, `read_knowledge_file`, `create_qdrant_points`, `qdrant_search`, `ask_llm`).
+  - **External Ingestion:** Dynamically parses text line-by-line from `knowledge_base.txt`.
+  - **Robust Cloud Connection:** Configured with `timeout=60` and `prefer_grpc=True` for high-throughput, low-latency vector operations over remote connections.
+  - **Qdrant Indexing:** Checks collection existence and upserts `PointStruct` objects containing vectors and metadata payloads.
+  - **Chunking**: Process of dividing the knowledge base into smaller chunk to make sure the meaning remains the same. 
+  . There are 2 types of chunking:
+    1. Character Based - Type of chunking where text is divided into smaller fixed size chunks. But without overlapping chunks it may result in loss of context.
+    2. Recursive - Here chunking is done based on seperators and overlapping is done to make sure that context is not lost.   
+  - **Top-K Vector Retrieval:** Uses `query_points()` to retrieve the $K$ most relevant passages based on cosine distance.
+  - **Anti-Hallucination Prompting:** Injects retrieved context into Groq LLM with strict guardrails to prevent hallucination.
 
 ## 👤 Author
 
